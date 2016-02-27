@@ -31,17 +31,45 @@ zend_module_entry librpip_module_entry = {
  
 ZEND_GET_MODULE(librpip)
 
+ZEND_DECLARE_MODULE_GLOBALS(librpip)
+
 PHP_MINFO_FUNCTION(librpip)
 {
-    php_info_print_table_start();
-    php_info_print_table_row(2, "librpip support", "enabled");
-    php_info_print_table_end();
+
+	librpipPwmStatusWrite(0, LIBRPIP_PWM_STATUS_ON);
+	librpipPwmDutyPercentWrite(0, 50.0);
+	char string[40];
+	
+	php_info_print_table_start();
+	php_info_print_table_row(2, "librpip support", "enabled");
+	php_info_print_table_row(2, "version", PHP_LIBRPIP_VERSION);
+	
+	sprintf(string,"%u",librpipGetBoardID());	
+	php_info_print_table_row(2, "board", string);	
+	
+	sprintf(string,"0x%x",LIBRPIP_G(featureset) & 0xffffffff);	
+	php_info_print_table_row(2, "feature set", string);
+
+	sprintf(string,"%u %u",LIBRPIP_G(uid),LIBRPIP_G(euid));	
+	php_info_print_table_row(2, "init as", string);
+		
+	sprintf(string,"%u %u",getuid(),geteuid());	
+	php_info_print_table_row(2, "running as", string);		
+	
+	librpipVersionStr(&string[0], sizeof(string));		
+	php_info_print_table_row(2, "librpip library version", string);	
+	php_info_print_table_end();
 }
 
 PHP_MINIT_FUNCTION(librpip)
 {
-    uint32_t fs;
-    fs = librpipInit(LIBRPIP_BOARD_DETECT, 0, 0);
+	uint32_t fs;
+	LIBRPIP_G(uid)=getuid();
+	LIBRPIP_G(euid)	=geteuid();
+	LIBRPIP_G(featureset) = librpipInit(LIBRPIP_BOARD_DETECT, 0, 0);
+
+    	return SUCCESS;    
+    
 }
 
 PHP_MSHUTDOWN_FUNCTION(librpip)
