@@ -20,7 +20,9 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_I2cConfigWrite, NULL)
 	PHP_FE(librpip_PwmConfigWrite, NULL)
 	PHP_FE(librpip_PwmStatusWrite, NULL)
-	PHP_FE(librpip_PwmDutyPercentWrite, NULL)				
+	PHP_FE(librpip_PwmDutyPercentWrite, NULL)
+	PHP_FE(librpip_ServoConfigWrite, NULL)
+	PHP_FE(librpip_ServoPositionWrite, NULL)					
 	{NULL, NULL, NULL}
 };
  
@@ -202,9 +204,53 @@ PHP_FUNCTION(librpip_PwmDutyPercentWrite) {
 	RETURN_TRUE;	
 }
 
+PHP_FUNCTION(librpip_ServoConfigWrite) {
 
+	if(ZEND_NUM_ARGS() != 4) WRONG_PARAM_COUNT;
+	
+	long id;
+	long range;
+	long pmin;
+	long pmax;		
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "llll", &id, &range, &pmin, &pmax) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u %u %u",id, range, pmin, pmax);
+
+	if(!run_function_write('P', "ServoConfigWrite", 16, params, strlen(params))) 
+		RETURN_FALSE;	
 		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_ServoPositionWrite) {
+
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long id;
+	double angle;		
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ld", &id, &angle) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %.3f",id, angle);
+
+	if(!run_function_write('P', "ServoPositionWrite", 18, params, strlen(params))) 
+		RETURN_FALSE;	
 		
+	RETURN_TRUE;	
+}
+
+	
 
 //internal functions
 uint32_t get_features_info(char* str, int len, uint32_t fs) {

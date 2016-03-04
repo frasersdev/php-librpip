@@ -35,6 +35,8 @@ PHP_FUNCTION(librpip_I2cConfigWrite);
 PHP_FUNCTION(librpip_PwmConfigWrite);
 PHP_FUNCTION(librpip_PwmStatusWrite);
 PHP_FUNCTION(librpip_PwmDutyPercentWrite);
+PHP_FUNCTION(librpip_ServoConfigWrite);
+PHP_FUNCTION(librpip_ServoPositionWrite);
 
 extern zend_module_entry librpip_module_entry;
 #define phpext_librpip_ptr &librpip_module_entry
