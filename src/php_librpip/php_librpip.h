@@ -33,7 +33,7 @@ PHP_FUNCTION(librpip_GetBoardID);
 PHP_FUNCTION(librpip_GetBoardName);
 PHP_FUNCTION(librpip_Version);
 PHP_FUNCTION(librpip_GpioConfigWrite);
-PHP_FUNCTION(librpip_GpioWrite);
+PHP_FUNCTION(librpip_GpioPinWrite);
 PHP_FUNCTION(librpip_GpioPinToggle);
 PHP_FUNCTION(librpip_GpioPinPulse);
 PHP_FUNCTION(librpip_GpioPinEventWait);
@@ -47,7 +47,7 @@ PHP_FUNCTION(librpip_ServoPositionWrite);
 PHP_FUNCTION(librpip_SpiConfigWrite);
 
 extern zend_module_entry librpip_module_entry;
-#define phpext_php_librpip_ptr &librpip_module_entry
+#define phpext_librpip_ptr &librpip_module_entry
 
 uint32_t get_features_info(char* str, int len, uint32_t fs);
 uint32_t get_variable_uint(char* variable, int cmd_len, int init);

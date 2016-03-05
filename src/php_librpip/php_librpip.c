@@ -18,7 +18,7 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_GetBoardName, NULL)	
 	PHP_FE(librpip_Version, NULL)
 	PHP_FE(librpip_GpioConfigWrite, NULL)
-	PHP_FE(librpip_GpioWrite, NULL)
+	PHP_FE(librpip_GpioPinWrite, NULL)
 	PHP_FE(librpip_GpioPinToggle, NULL)
 	PHP_FE(librpip_GpioPinPulse, NULL)
 	PHP_FE(librpip_GpioPinEventWait, NULL)
@@ -39,9 +39,9 @@ zend_module_entry librpip_module_entry = {
 	PHP_LIBRPIP_EXTNAME,
 	librpip_functions,
 	PHP_MINIT(librpip), 
-	NULL, // MSHUTDOWN function 
+	NULL, // name of the MSHUTDOWN function or NULL if not applicable
 	PHP_RINIT(librpip), 
-	NULL, // RSHUTDOWN function 
+	NULL, // name of the RSHUTDOWN function or NULL if not applicable
 	PHP_MINFO(librpip), 
 	PHP_LIBRPIP_VERSION,
 	STANDARD_MODULE_PROPERTIES
@@ -72,7 +72,7 @@ PHP_MINFO_FUNCTION(librpip)
 	php_info_print_table_end();
 }
 
-PHP_MINIT_FUNCTION(php_librpip)
+PHP_MINIT_FUNCTION(librpip)
 {
 	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_IN", 		0x001, CONST_CS | CONST_PERSISTENT); 
 	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_OUT", 		0x002, CONST_CS | CONST_PERSISTENT); 
@@ -100,7 +100,7 @@ PHP_MINIT_FUNCTION(php_librpip)
     	return SUCCESS;  
 }
 
-PHP_RINIT_FUNCTION(php_librpip)
+PHP_RINIT_FUNCTION(librpip)
 {
 	LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
 	LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);

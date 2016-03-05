@@ -16,7 +16,7 @@ install :
 	cp etc/sockrpip.conf ${INSTALL}/etc/php-librpip
 	# add systemd config, start service
 	@set -e; for d in $(IDIRS); do $(MAKE) -C $$d install ; done
-	cp config/php_librpip.ini /etc/php5/mods-available
+	cp config/librpip.ini /etc/php5/mods-available
 	# link to ini, restart apache
 
 clean :
