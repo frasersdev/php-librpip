@@ -239,7 +239,7 @@ uint32_t run_gpio_function(int* cl, char* cmdstr) {
 		if(param_error) {
 			get_syntax_response(&buf[0], sizeof(buf),1);
 		} else {				
-			if(librpipGpioConfigPinToggle(pin)) 
+			if(librpipGpioPinToggle(pin)) 
 				sprintf(buf,"Y");	
 			else 
 				get_error_response(&buf[0], sizeof(buf));
@@ -253,7 +253,7 @@ uint32_t run_gpio_function(int* cl, char* cmdstr) {
 		if(param_error) {
 			get_syntax_response(&buf[0], sizeof(buf),2);
 		} else {				
-			if(librpipGpioConfigPinPulse(pin, length)) 
+			if(librpipGpioPinPulse(pin, length)) 
 				sprintf(buf,"Y");	
 			else 
 				get_error_response(&buf[0], sizeof(buf));

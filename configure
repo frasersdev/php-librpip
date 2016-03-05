@@ -1,0 +1,4 @@
+#!/bin/bash
+cd src/php_librpip
+phpize
+./configure

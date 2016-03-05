@@ -47,11 +47,11 @@ zend_module_entry librpip_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
  
-ZEND_GET_MODULE(php_librpip)
+ZEND_GET_MODULE(librpip)
 
-ZEND_DECLARE_MODULE_GLOBALS(php_librpip)
+ZEND_DECLARE_MODULE_GLOBALS(librpip)
 
-PHP_MINFO_FUNCTION(php_librpip)
+PHP_MINFO_FUNCTION(librpip)
 {
 	char string[100]={0};
 	
@@ -60,8 +60,8 @@ PHP_MINFO_FUNCTION(php_librpip)
 	php_info_print_table_row(2, "version", PHP_LIBRPIP_VERSION);
 
 	char fstring[80]={0};
-	get_features_info(fstring, sizeof(fstring), PHP_LIBRPIP_G(featureset));
-	snprintf(string,sizeof(string),"%s (0x%x)", fstring, PHP_LIBRPIP_G(featureset));		
+	get_features_info(fstring, sizeof(fstring), LIBRPIP_G(featureset));
+	snprintf(string,sizeof(string),"%s (0x%x)", fstring, LIBRPIP_G(featureset));		
 	php_info_print_table_row(2, "feature set", string);	
 		
 	get_variable_str("BoardDesc", 9, string, sizeof(string), 1);	
@@ -102,9 +102,9 @@ PHP_MINIT_FUNCTION(php_librpip)
 
 PHP_RINIT_FUNCTION(php_librpip)
 {
-	PHP_LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
-	PHP_LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);
-	PHP_LIBRPIP_G(validpins) = get_variable_uint("GpioGetValidPins", 16, 0);	
+	LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
+	LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);
+	LIBRPIP_G(validpins) = get_variable_uint("GpioGetValidPins", 16, 0);	
     	return SUCCESS;    
     
 }
@@ -112,12 +112,12 @@ PHP_RINIT_FUNCTION(php_librpip)
 // functions
 PHP_FUNCTION(librpip_FeatureSet)
 {
-	RETURN_LONG(PHP_LIBRPIP_G(featureset));
+	RETURN_LONG(LIBRPIP_G(featureset));
 }
 
 PHP_FUNCTION(librpip_GetBoardID)
 {
-	RETURN_LONG(PHP_LIBRPIP_G(boardid));
+	RETURN_LONG(LIBRPIP_G(boardid));
 }
 
 PHP_FUNCTION(librpip_GetBoardName)
@@ -245,7 +245,7 @@ PHP_FUNCTION(librpip_GpioPinEventWait) {
 
 PHP_FUNCTION(librpip_GpioGetValidPins)
 {
-	RETURN_LONG(PHP_LIBRPIP_G(validpins));
+	RETURN_LONG(LIBRPIP_G(validpins));
 }
 
 
