@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <php.h>
 #include <librpip.h>
-#include "php-librpip.h"
+#include "php_librpip.h"
  
 
 // set {NULL, NULL, NULL} as the last record to mark the end of list
@@ -17,12 +17,19 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_GetBoardID, NULL)
 	PHP_FE(librpip_GetBoardName, NULL)	
 	PHP_FE(librpip_Version, NULL)
+	PHP_FE(librpip_GpioConfigWrite, NULL)
+	PHP_FE(librpip_GpioWrite, NULL)
+	PHP_FE(librpip_GpioPinToggle, NULL)
+	PHP_FE(librpip_GpioPinPulse, NULL)
+	PHP_FE(librpip_GpioPinEventWait, NULL)
+	PHP_FE(librpip_GpioGetValidPins, NULL)
 	PHP_FE(librpip_I2cConfigWrite, NULL)
 	PHP_FE(librpip_PwmConfigWrite, NULL)
 	PHP_FE(librpip_PwmStatusWrite, NULL)
 	PHP_FE(librpip_PwmDutyPercentWrite, NULL)
 	PHP_FE(librpip_ServoConfigWrite, NULL)
-	PHP_FE(librpip_ServoPositionWrite, NULL)					
+	PHP_FE(librpip_ServoPositionWrite, NULL)
+	PHP_FE(librpip_SpiConfigWrite, NULL)		
 	{NULL, NULL, NULL}
 };
  
@@ -32,19 +39,19 @@ zend_module_entry librpip_module_entry = {
 	PHP_LIBRPIP_EXTNAME,
 	librpip_functions,
 	PHP_MINIT(librpip), 
-	NULL, // name of the MSHUTDOWN function or NULL if not applicable
+	NULL, // MSHUTDOWN function 
 	PHP_RINIT(librpip), 
-	NULL, // name of the RSHUTDOWN function or NULL if not applicable
+	NULL, // RSHUTDOWN function 
 	PHP_MINFO(librpip), 
 	PHP_LIBRPIP_VERSION,
 	STANDARD_MODULE_PROPERTIES
 };
  
-ZEND_GET_MODULE(librpip)
+ZEND_GET_MODULE(php_librpip)
 
-ZEND_DECLARE_MODULE_GLOBALS(librpip)
+ZEND_DECLARE_MODULE_GLOBALS(php_librpip)
 
-PHP_MINFO_FUNCTION(librpip)
+PHP_MINFO_FUNCTION(php_librpip)
 {
 	char string[100]={0};
 	
@@ -53,8 +60,8 @@ PHP_MINFO_FUNCTION(librpip)
 	php_info_print_table_row(2, "version", PHP_LIBRPIP_VERSION);
 
 	char fstring[80]={0};
-	get_features_info(fstring, sizeof(fstring), LIBRPIP_G(featureset));
-	snprintf(string,sizeof(string),"%s (0x%x)", fstring, LIBRPIP_G(featureset));		
+	get_features_info(fstring, sizeof(fstring), PHP_LIBRPIP_G(featureset));
+	snprintf(string,sizeof(string),"%s (0x%x)", fstring, PHP_LIBRPIP_G(featureset));		
 	php_info_print_table_row(2, "feature set", string);	
 		
 	get_variable_str("BoardDesc", 9, string, sizeof(string), 1);	
@@ -65,8 +72,20 @@ PHP_MINFO_FUNCTION(librpip)
 	php_info_print_table_end();
 }
 
-PHP_MINIT_FUNCTION(librpip)
+PHP_MINIT_FUNCTION(php_librpip)
 {
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_IN", 		0x001, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_OUT", 		0x002, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_PUD_OFF", 		0x004, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_PUD_DOWN", 		0x008, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_PUD_UP", 		0x010, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_OFF", 		0x020, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_RISE", 		0x040, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_FALL", 		0x080, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_HIGH", 		0x100, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_LOW", 		0x200, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_ARISE", 		0x400, CONST_CS | CONST_PERSISTENT); 
+	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_ED_AFALL", 		0x800, CONST_CS | CONST_PERSISTENT); 
 	REGISTER_LONG_CONSTANT("LIBRPIP_I2C_FLAG_PEC", 			0x1, CONST_CS | CONST_PERSISTENT); 
 	REGISTER_LONG_CONSTANT("LIBRPIP_PWM_STATUS_OFF", 		0x0, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LIBRPIP_PWM_STATUS_ON", 		0x1, CONST_CS | CONST_PERSISTENT);
@@ -81,10 +100,11 @@ PHP_MINIT_FUNCTION(librpip)
     	return SUCCESS;  
 }
 
-PHP_RINIT_FUNCTION(librpip)
+PHP_RINIT_FUNCTION(php_librpip)
 {
-	LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
-	LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);
+	PHP_LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
+	PHP_LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);
+	PHP_LIBRPIP_G(validpins) = get_variable_uint("GpioGetValidPins", 16, 0);	
     	return SUCCESS;    
     
 }
@@ -92,12 +112,12 @@ PHP_RINIT_FUNCTION(librpip)
 // functions
 PHP_FUNCTION(librpip_FeatureSet)
 {
-	RETURN_LONG(LIBRPIP_G(featureset));
+	RETURN_LONG(PHP_LIBRPIP_G(featureset));
 }
 
 PHP_FUNCTION(librpip_GetBoardID)
 {
-	RETURN_LONG(LIBRPIP_G(boardid));
+	RETURN_LONG(PHP_LIBRPIP_G(boardid));
 }
 
 PHP_FUNCTION(librpip_GetBoardName)
@@ -113,6 +133,121 @@ PHP_FUNCTION(librpip_Version)
 	get_variable_str("Version", 7, version, sizeof(version), 0);
 	RETURN_STRING(version, 1);
 }
+
+PHP_FUNCTION(librpip_GpioConfigWrite) {
+
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long pin;
+	long flags;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &pin, &flags) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u",pin,flags);
+
+	if(!run_function_write('G', "GpioConfigWrite", 15, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioPinWrite) {
+
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long pin;
+	long value;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &pin, &value) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u",pin,value);
+
+	if(!run_function_write('G', "GpioPinWrite", 12, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioPinToggle) {
+
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long pin;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pin) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u",pin);
+
+	if(!run_function_write('G', "GpioPinToggle", 13, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioPinPulse) {
+
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long pin;
+	long length;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &pin, &length) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u",pin,length);
+
+	if(!run_function_write('G', "GpioPinPulse", 12, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioPinEventWait) {
+
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long pin;
+	long timeout;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &pin, &timeout) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u",pin,timeout);
+
+	if(!run_function_write('G', "GpioPinEventWait", 16, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioGetValidPins)
+{
+	RETURN_LONG(PHP_LIBRPIP_G(validpins));
+}
+
 
 PHP_FUNCTION(librpip_I2cConfigWrite) {
 
@@ -245,6 +380,31 @@ PHP_FUNCTION(librpip_ServoPositionWrite) {
 	snprintf(params,sizeof(params),"%u %.3f",id, angle);
 
 	if(!run_function_write('P', "ServoPositionWrite", 18, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_SpiConfigWrite) {
+
+	if(ZEND_NUM_ARGS() != 5) WRONG_PARAM_COUNT;
+	
+	long id;
+	long cs;
+	long spi_mode;
+	long max_speed;
+	long spi_flags;
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lllll", &id, &cs, &spi_mode, &max_speed, &spi_flags) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[40]={0};
+	
+	snprintf(params,sizeof(params),"%u %u %u %u %u",id, cs, spi_mode, max_speed, spi_flags);
+
+	if(!run_function_write('S', "SpiConfigWrite", 14, params, strlen(params))) 
 		RETURN_FALSE;	
 		
 	RETURN_TRUE;	
