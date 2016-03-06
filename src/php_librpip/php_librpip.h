@@ -32,18 +32,26 @@ PHP_FUNCTION(librpip_FeatureSet);
 PHP_FUNCTION(librpip_GetBoardID);
 PHP_FUNCTION(librpip_GetBoardName);
 PHP_FUNCTION(librpip_Version);
-PHP_FUNCTION(librpip_GpioConfigWrite);
+PHP_FUNCTION(librpip_GpioConfigPinRead);
+PHP_FUNCTION(librpip_GpioConfigPinWrite);
+PHP_FUNCTION(librpip_GpioPinRead);
 PHP_FUNCTION(librpip_GpioPinWrite);
 PHP_FUNCTION(librpip_GpioPinToggle);
 PHP_FUNCTION(librpip_GpioPinPulse);
+PHP_FUNCTION(librpip_GpioPinEvent);
 PHP_FUNCTION(librpip_GpioPinEventWait);
 PHP_FUNCTION(librpip_GpioGetValidPins);
+PHP_FUNCTION(librpip_I2cConfigRead);
 PHP_FUNCTION(librpip_I2cConfigWrite);
+PHP_FUNCTION(librpip_PwmConfigRead);
 PHP_FUNCTION(librpip_PwmConfigWrite);
+PHP_FUNCTION(librpip_PwmStatusRead);
 PHP_FUNCTION(librpip_PwmStatusWrite);
 PHP_FUNCTION(librpip_PwmDutyPercentWrite);
+PHP_FUNCTION(librpip_ServoConfigRead);
 PHP_FUNCTION(librpip_ServoConfigWrite);
 PHP_FUNCTION(librpip_ServoPositionWrite);
+PHP_FUNCTION(librpip_SpiConfigRead);
 PHP_FUNCTION(librpip_SpiConfigWrite);
 
 extern zend_module_entry librpip_module_entry;
@@ -53,6 +61,8 @@ uint32_t get_features_info(char* str, int len, uint32_t fs);
 uint32_t get_variable_uint(char* variable, int cmd_len, int init);
 uint32_t get_variable_str(char* variable, int cmd_len, char* str, int str_len, int init);
 uint32_t run_function_write(char class, char* func, int func_len, char* func_params, int func_params_len);
+uint32_t run_function_read(char class, char* func, int func_len, char* func_params, int func_params_len, char* resp, int resp_len);
 uint32_t do_socket_comms(char* cmd, int cmd_len, char* response, int response_len);
+uint32_t get_response_uint(void);
 
 #endif

@@ -10,14 +10,21 @@ all :
 
 
 install :
-	mkdir -p ${INSTALL}/etc/php-librpip
-	mkdir -p ${INSTALL}/bin/php-librpip
-	cp bin/sockrpip ${INSTALL}/bin/php-librpip
-	cp etc/sockrpip.conf ${INSTALL}/etc/php-librpip
+	killall sockrpip
+	mkdir -p ${INSTALL}/etc/sockrpip.d
+	mkdir -p ${INSTALL}/bin/sockrpip
+	mkdir -p /var/lib/sockrpip
+	if id -u sockrpip >/dev/null 2>&1; then touch /var/lib/sockrpip; else groupadd -rf sockrpip; useradd -r -d /var/lib/sockrpip -s /usr/sbin/nologin -g sockrpip sockrpip; fi
+	chown -R sockrpip:sockrpip /var/lib/sockrpip
+	cp bin/sockrpip ${INSTALL}/bin/sockrpip
+	cp etc/sockrpip.conf ${INSTALL}/etc/sockrpip.d
+	runuser -u sockrpip /usr/local/bin/sockrpip/sockrpip
 	# add systemd config, start service
 	@set -e; for d in $(IDIRS); do $(MAKE) -C $$d install ; done
 	cp config/librpip.ini /etc/php5/mods-available
-	# link to ini, restart apache
+	if [ -d /etc/php5/cli ]; then ln -fsr /etc/php5/mods-available/librpip.ini /etc/php5/cli/conf.d/49-librpip.ini; fi
+	if [ -d /etc/php5/apache2 ]; then ln -fsr /etc/php5/mods-available/librpip.ini /etc/php5/apache2/conf.d/49-librpip.ini; service apache2 restart; fi	
+
 
 clean :
 	find . -type f -name '*DS_Store' -exec rm -f '{}' ';'

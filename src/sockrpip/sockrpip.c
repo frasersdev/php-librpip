@@ -1,10 +1,18 @@
+#include <signal.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <stdlib.h>
+#include <syslog.h>
+#include <sys/un.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include <librpip.h>
 
+
+
+static void daemonise(void);
 uint32_t setup_socket(int* fd);
 uint32_t do_command(int* fd);
 uint32_t get_variable(int* cl, char* cmdstr);
@@ -23,7 +31,7 @@ int main(int argc, char *argv[]) {
 
 
 	int fd;
-
+	daemonise();
 	if(setup_socket(&fd)) {
 	
 		feature_set = librpipInit(LIBRPIP_BOARD_DETECT, 0, 0);
@@ -35,13 +43,55 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+static void daemonise(void)
+{
+	pid_t pid;
+
+
+	pid = fork();
+
+	if (pid < 0)
+		exit(EXIT_FAILURE);
+
+	if (pid > 0)
+		exit(EXIT_SUCCESS);
+
+	if (setsid() < 0)
+		exit(EXIT_FAILURE);
+
+	signal(SIGCHLD, SIG_IGN);
+	signal(SIGHUP, SIG_IGN);
+
+
+	pid = fork();
+
+	if (pid < 0)
+		exit(EXIT_FAILURE);
+
+	if (pid > 0)
+		exit(EXIT_SUCCESS);
+
+
+	umask(0);
+
+	chdir("/var/lib/sockrpip");
+
+    	/* Close all open file descriptors */
+	int x;
+	for (x = sysconf(_SC_OPEN_MAX); x>0; x--) {
+		close (x);
+	}
+
+	openlog("sockrpip", LOG_PID, LOG_DAEMON);
+}
+
 uint32_t setup_socket(int* fd) {
 
-	char *socket_path = "/tmp/librpip-socket";
+	char* socket_path = "/var/lib/sockrpip/socket";
 	struct sockaddr_un addr;
 
 	if ( (*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		perror("socket error");
+		syslog (LOG_ERR, "Socket Creation Error\n");
 		return 0;
 	}
 	
@@ -52,21 +102,24 @@ uint32_t setup_socket(int* fd) {
 	unlink(socket_path);
 
 	if (bind(*fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-		perror("bind error");
+		syslog (LOG_ERR, "Socket Bind Error\n");
 		return 0;
 	}
 
 	if (listen(*fd, 5) == -1) {
-		perror("listen error");
+		syslog (LOG_ERR, "Socket Listen Error\n");
 		return 0;
 	}
+	
+	chmod(socket_path, S_IRWXU | S_IRWXG);
 	return 1;	
 }
 
 uint32_t do_command(int* fd) {
 
 	int cl,rc;
-	char buf[255];	
+	char buf[255]={0};
+	char msg[255]={0};
 
 	if((cl = accept(*fd, NULL, NULL)) == -1) {
 		return 0;
@@ -75,7 +128,8 @@ uint32_t do_command(int* fd) {
 	
 	if(rc > 2 ) {
 		buf[rc]='\0';
-		printf("Client sent request '%s'\n", buf);
+		sprintf(msg,"Client sent request '%s'\n", buf);
+		syslog (LOG_INFO, msg);
 		switch(buf[0]) {
 			case 'V':
 				get_variable(&cl,&buf[2]);
@@ -93,26 +147,28 @@ uint32_t do_command(int* fd) {
 				run_spi_function(&cl,&buf[2]);
 				break;					
 			default:
-				printf("Unknown CMD: %c\n", buf[0]);
+				sprintf(msg,"Unknown CMD: %c\n", buf[0]);
+				syslog(LOG_WARNING, msg);
 		}
 		close(cl);
 	}
 	
 	else if(rc > 0) {
 		buf[rc]='\0';
-		printf("Invalid Request %s\n",buf);
+		sprintf(msg,"Invalid Request %s\n",buf);
+		syslog(LOG_WARNING, msg);
 		close(cl);
 		return 0;
 	}	
 	
 	else if(rc == 0) {
-		printf("Client Dropped Connection\n");
+		syslog (LOG_NOTICE, "Client Dropped Connection\n");
 		close(cl);
 		return 0;
 	}	
     
 	else if(rc == -1) {
-		perror("read");
+		syslog (LOG_ERR, "Socket Read Error\n");
 		close(cl);
 		return 0;
 	}

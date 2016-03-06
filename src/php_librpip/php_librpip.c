@@ -17,18 +17,26 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_GetBoardID, NULL)
 	PHP_FE(librpip_GetBoardName, NULL)	
 	PHP_FE(librpip_Version, NULL)
-	PHP_FE(librpip_GpioConfigWrite, NULL)
+	PHP_FE(librpip_GpioConfigPinRead, NULL)	
+	PHP_FE(librpip_GpioConfigPinWrite, NULL)
+	PHP_FE(librpip_GpioPinRead, NULL)
 	PHP_FE(librpip_GpioPinWrite, NULL)
 	PHP_FE(librpip_GpioPinToggle, NULL)
 	PHP_FE(librpip_GpioPinPulse, NULL)
+	PHP_FE(librpip_GpioPinEvent, NULL)
 	PHP_FE(librpip_GpioPinEventWait, NULL)
 	PHP_FE(librpip_GpioGetValidPins, NULL)
+	PHP_FE(librpip_I2cConfigRead, NULL)
 	PHP_FE(librpip_I2cConfigWrite, NULL)
+	PHP_FE(librpip_PwmConfigRead, NULL)
 	PHP_FE(librpip_PwmConfigWrite, NULL)
+	PHP_FE(librpip_PwmStatusRead, NULL)
 	PHP_FE(librpip_PwmStatusWrite, NULL)
 	PHP_FE(librpip_PwmDutyPercentWrite, NULL)
+	PHP_FE(librpip_ServoConfigRead, NULL)
 	PHP_FE(librpip_ServoConfigWrite, NULL)
 	PHP_FE(librpip_ServoPositionWrite, NULL)
+	PHP_FE(librpip_SpiConfigRead, NULL)	
 	PHP_FE(librpip_SpiConfigWrite, NULL)		
 	{NULL, NULL, NULL}
 };
@@ -51,8 +59,7 @@ ZEND_GET_MODULE(librpip)
 
 ZEND_DECLARE_MODULE_GLOBALS(librpip)
 
-PHP_MINFO_FUNCTION(librpip)
-{
+PHP_MINFO_FUNCTION(librpip) {
 	char string[100]={0};
 	
 	php_info_print_table_start();
@@ -72,8 +79,7 @@ PHP_MINFO_FUNCTION(librpip)
 	php_info_print_table_end();
 }
 
-PHP_MINIT_FUNCTION(librpip)
-{
+PHP_MINIT_FUNCTION(librpip) {
 	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_IN", 		0x001, CONST_CS | CONST_PERSISTENT); 
 	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_FNC_OUT", 		0x002, CONST_CS | CONST_PERSISTENT); 
 	REGISTER_LONG_CONSTANT("LIBRPIP_GPIO_FLAG_PUD_OFF", 		0x004, CONST_CS | CONST_PERSISTENT); 
@@ -100,8 +106,7 @@ PHP_MINIT_FUNCTION(librpip)
     	return SUCCESS;  
 }
 
-PHP_RINIT_FUNCTION(librpip)
-{
+PHP_RINIT_FUNCTION(librpip) {
 	LIBRPIP_G(featureset) = get_variable_uint("FeatureSet", 10, 1);
 	LIBRPIP_G(boardid) = get_variable_uint("BoardID", 7, 1);
 	LIBRPIP_G(validpins) = get_variable_uint("GpioGetValidPins", 16, 0);	
@@ -110,31 +115,56 @@ PHP_RINIT_FUNCTION(librpip)
 }
 
 // functions
-PHP_FUNCTION(librpip_FeatureSet)
-{
+PHP_FUNCTION(librpip_FeatureSet) {
 	RETURN_LONG(LIBRPIP_G(featureset));
 }
 
-PHP_FUNCTION(librpip_GetBoardID)
-{
+PHP_FUNCTION(librpip_GetBoardID) {
 	RETURN_LONG(LIBRPIP_G(boardid));
 }
 
-PHP_FUNCTION(librpip_GetBoardName)
-{
+PHP_FUNCTION(librpip_GetBoardName) {
 	char boardname[60]={0};
 	get_variable_str("BoardDesc", 9, boardname, sizeof(boardname), 0);
 	RETURN_STRING(boardname, 1);
 }
 
-PHP_FUNCTION(librpip_Version)
-{
+PHP_FUNCTION(librpip_Version) {
 	char version[40]={0};
 	get_variable_str("Version", 7, version, sizeof(version), 0);
 	RETURN_STRING(version, 1);
 }
 
-PHP_FUNCTION(librpip_GpioConfigWrite) {
+PHP_FUNCTION(librpip_GpioConfigPinRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long pin;
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pin) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+
+	char params[40]={0};
+	char result[40]={0};	
+	
+	snprintf(params,sizeof(params),"%u",pin);
+
+	if(!run_function_read('G', "GpioConfigPinRead", 17, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "flags", get_response_uint());
+
+	RETURN_ZVAL(results, 1, 1);	
+}
+
+PHP_FUNCTION(librpip_GpioConfigPinWrite) {
 
 	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
 	
@@ -150,10 +180,35 @@ PHP_FUNCTION(librpip_GpioConfigWrite) {
 	
 	snprintf(params,sizeof(params),"%u %u",pin,flags);
 
-	if(!run_function_write('G', "GpioConfigWrite", 15, params, strlen(params))) 
+	if(!run_function_write('G', "GpioConfigPinWrite", 18, params, strlen(params))) 
 		RETURN_FALSE;	
 		
 	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_GpioPinRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long pin;
+
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pin) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+
+	char params[40]={0};
+	char result[40]={0};	
+	
+	snprintf(params,sizeof(params),"%u",pin);
+
+	if(!run_function_read('G', "GpioPinRead", 11, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+
+	RETURN_LONG(get_response_uint());	
 }
 
 PHP_FUNCTION(librpip_GpioPinWrite) {
@@ -221,6 +276,35 @@ PHP_FUNCTION(librpip_GpioPinPulse) {
 	RETURN_TRUE;	
 }
 
+PHP_FUNCTION(librpip_GpioPinEvent) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long pin;
+
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pin) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+
+	char params[40]={0};
+	char result[40]={0};	
+	
+	snprintf(params,sizeof(params),"%u",pin);
+
+	if(!run_function_read('G', "GpioPinEventTest", 16, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+
+	if(get_response_uint()) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;	
+	}
+}
+
 PHP_FUNCTION(librpip_GpioPinEventWait) {
 
 	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
@@ -243,11 +327,38 @@ PHP_FUNCTION(librpip_GpioPinEventWait) {
 	RETURN_TRUE;	
 }
 
-PHP_FUNCTION(librpip_GpioGetValidPins)
-{
+PHP_FUNCTION(librpip_GpioGetValidPins) {
 	RETURN_LONG(LIBRPIP_G(validpins));
 }
 
+PHP_FUNCTION(librpip_I2cConfigRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+
+	char params[40]={0};
+	char result[40]={0};	
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('I', "I2cConfigRead", 13, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "flags", get_response_uint());
+
+	RETURN_ZVAL(results, 1, 1);	
+}
 
 PHP_FUNCTION(librpip_I2cConfigWrite) {
 
@@ -269,6 +380,37 @@ PHP_FUNCTION(librpip_I2cConfigWrite) {
 		RETURN_FALSE;	
 		
 	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_PwmConfigRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+	char params[40]={0};
+	char result[80]={0};	
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('P', "PwmConfigRead", 13, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "pin", get_response_uint());
+	add_assoc_long(results, "period", get_response_uint());
+	add_assoc_long(results, "duty_cycle", get_response_uint());
+	add_assoc_long(results, "flags", get_response_uint());	
+
+	RETURN_ZVAL(results, 1, 1);	
 }
 
 PHP_FUNCTION(librpip_PwmConfigWrite) {
@@ -293,6 +435,34 @@ PHP_FUNCTION(librpip_PwmConfigWrite) {
 		RETURN_FALSE;	
 		
 	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_PwmStatusRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+	char params[40]={0};
+	char result[40]={0};	
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('P', "PwmStatusRead", 13, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "status", get_response_uint());
+
+	RETURN_ZVAL(results, 1, 1);	
 }
 
 PHP_FUNCTION(librpip_PwmStatusWrite) {
@@ -337,6 +507,36 @@ PHP_FUNCTION(librpip_PwmDutyPercentWrite) {
 		RETURN_FALSE;	
 		
 	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_ServoConfigRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+	char params[40]={0};
+	char result[80]={0};	
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('P', "ServoConfigRead", 15, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "range", get_response_uint());
+	add_assoc_long(results, "pmin", get_response_uint());
+	add_assoc_long(results, "pmax", get_response_uint());
+
+	RETURN_ZVAL(results, 1, 1);	
 }
 
 PHP_FUNCTION(librpip_ServoConfigWrite) {
@@ -385,6 +585,39 @@ PHP_FUNCTION(librpip_ServoPositionWrite) {
 	RETURN_TRUE;	
 }
 
+PHP_FUNCTION(librpip_SpiConfigRead) {
+	if(ZEND_NUM_ARGS() != 2) WRONG_PARAM_COUNT;
+	
+	long id;
+	long cs;	
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &id, &cs) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+	char params[40]={0};
+	char result[80]={0};	
+	
+	snprintf(params,sizeof(params),"%u %u",id,cs);
+
+	if(!run_function_read('S', "SpiConfigRead", 13, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "spi_mode", get_response_uint());
+	add_assoc_long(results, "lsb_first", get_response_uint());
+	add_assoc_long(results, "bits_per_word", get_response_uint());
+	add_assoc_long(results, "max_speed", get_response_uint());
+	add_assoc_long(results, "spi_flags", get_response_uint());
+
+	RETURN_ZVAL(results, 1, 1);	
+}
+	
 PHP_FUNCTION(librpip_SpiConfigWrite) {
 
 	if(ZEND_NUM_ARGS() != 5) WRONG_PARAM_COUNT;
@@ -443,7 +676,6 @@ uint32_t get_features_info(char* str, int len, uint32_t fs) {
 	return strlen(str);
 						
 }
-
 
 uint32_t get_variable_uint(char* variable, int cmd_len, int init) {
 
@@ -552,15 +784,58 @@ uint32_t run_function_write(char class, char* func, int func_len, char* func_par
 				php_error(E_WARNING, "Sockrpip command error during %s(). Error was '%s'", get_active_function_name(TSRMLS_C), code);
 				break;
 			default:	
-				php_error(E_WARNING, "Unable to run fucuntion due to unknown error in %s(). (%s)", get_active_function_name(TSRMLS_C),resp);					
+				php_error(E_WARNING, "Unable to run function %s() due to unknown error. (%s)", get_active_function_name(TSRMLS_C),resp);					
 				break;					
 		}
+	} else {
+		php_error(E_WARNING, "Unable to run function %s(). No response from sockrpip.", get_active_function_name(TSRMLS_C));
+	}
+	return result;
+}
+
+uint32_t run_function_read(char class, char* func, int func_len, char* func_params, int func_params_len, char* resp, int resp_len) {
+
+	char cmd[100]={0};
+	char tresp[300]={0};
+	char* code;
+	uint32_t result=0;
+
+	snprintf(cmd,sizeof(cmd),"%c %s %s",class,func,func_params);
+	if(do_socket_comms(cmd, strlen(cmd), tresp, sizeof(tresp)) > 0) {
+		switch(tresp[0]) {
+			case 'Y':
+				result=1;
+				if(strlen(tresp) < resp_len-1) strcpy(resp,tresp);
+				else {
+					strncpy(resp,tresp,resp_len-1);
+					code=resp+(resp_len-1);
+					*code='\0';
+				}
+				break;
+			case 'N':
+				code=&tresp[2];
+				php_error(E_WARNING, "Sockrpip call unsuccessful during %s(). Message was '%s'", get_active_function_name(TSRMLS_C), code);	
+				break;	
+			case 'S':
+				code=&tresp[2];
+				php_error(E_WARNING, "Sockrpip socket error during %s(). Error was '%s'", get_active_function_name(TSRMLS_C), code);
+				break;			
+			case 'X':
+				code=&tresp[2];
+				php_error(E_WARNING, "Sockrpip command error during %s(). Error was '%s'", get_active_function_name(TSRMLS_C), code);
+				break;
+			default:	
+				php_error(E_WARNING, "Unable to run fucuntion due to unknown error in %s(). (%s)", get_active_function_name(TSRMLS_C),tresp);					
+				break;					
+		}
+	} else {
+		php_error(E_WARNING, "Unable to run function in %s(). No response from sockrpip.", get_active_function_name(TSRMLS_C));
 	}
 	return result;
 }
 
 uint32_t do_socket_comms(char* cmd, int cmd_len, char* response, int response_len) {
-	char *socket_path = "/tmp/librpip-socket";
+	char *socket_path = "/var/lib/sockrpip/socket";
 	struct sockaddr_un addr;
 	int fd,rc;
 	
@@ -591,4 +866,17 @@ uint32_t do_socket_comms(char* cmd, int cmd_len, char* response, int response_le
 		response[rc]='\0';
 	}
 	return rc;
+}
+
+uint32_t get_response_uint(void) {
+
+	char *val;
+	
+	val=strtok(NULL, " ");
+	if(val) {
+		return atoi(val);
+	} 
+	
+	php_error(E_WARNING, "Sockrpip command error during %s(). Unexpected parameter return count.", get_active_function_name(TSRMLS_C));
+	return 0;
 }
