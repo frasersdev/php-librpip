@@ -1,4 +1,25 @@
-#ifdef HAVE_CONFIG_H
+/*
+ * php_librpip - a php extension to use Raspberry PI peripherals 
+ * from php.
+ * 
+ * Copyright (C) 2016 Fraser Stuart
+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+ 
+ #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 #include <sys/socket.h>
@@ -37,7 +58,9 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_ServoConfigWrite, NULL)
 	PHP_FE(librpip_ServoPositionWrite, NULL)
 	PHP_FE(librpip_SpiConfigRead, NULL)	
-	PHP_FE(librpip_SpiConfigWrite, NULL)		
+	PHP_FE(librpip_SpiConfigWrite, NULL)
+	PHP_FE(librpip_UartConfigRead, NULL)
+	PHP_FE(librpip_UartConfigWrite, NULL)			
 	{NULL, NULL, NULL}
 };
  
@@ -103,6 +126,38 @@ PHP_MINIT_FUNCTION(librpip) {
 	REGISTER_LONG_CONSTANT("LIBRPIP_SPI_MODE_3", 			0x3, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LIBRPIP_SPI_FLAG_CS_HIGH", 		0x04, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LIBRPIP_SPI_FLAG_NO_CS", 		0x40, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_1200", 		1200, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_2400", 		2400, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_4800", 		4800, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_9600", 		9600, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_19200", 		19200, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_38400", 		38400, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_57600", 		57600, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_115200", 		115200, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_230400", 		230400, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_460800", 		460800, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_500000", 		500000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_576000", 		576000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_921600", 		921600, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_1000000", 		1000000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_1152000", 		1152000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_1500000", 		1500000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_2000000", 		2000000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_2500000", 		2500000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_3000000", 		3000000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_3500000", 		3500000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_BAUD_4000000", 		4000000, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_SIZE_5", 			5, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_SIZE_6", 			6, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_SIZE_7", 			7, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_SIZE_8", 			8, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_PARITY_OFF", 		0, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_PARITY_ODD", 		1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_PARITY_EVEN", 		2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_STOPBITS_1", 		1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_STOPBITS_2", 		2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_MODE_BINARY", 		0, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_MODE_ASCII	", 		1, CONST_CS | CONST_PERSISTENT);	
     	return SUCCESS;  
 }
 
@@ -139,7 +194,9 @@ PHP_FUNCTION(librpip_GpioConfigPinRead) {
 	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
 	
 	long pin;
+	long flags;
 	zval* results;
+	zval* flag;
 	char* val;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pin) == FAILURE) {
@@ -156,10 +213,31 @@ PHP_FUNCTION(librpip_GpioConfigPinRead) {
 		RETURN_NULL();	
 	
 	val = strtok(result, " ");
+	flags=get_response_uint();
 	
 	MAKE_STD_ZVAL(results);	
 	array_init(results);
-	add_assoc_long(results, "flags", get_response_uint());
+	
+	
+	MAKE_STD_ZVAL(flag);	
+	array_init(flag);
+	
+	add_assoc_long(flag, "raw", flags);
+	
+	if(flags & LIBRPIP_GPIO_FLAG_FNC_IN) 		add_assoc_string(flag, "function", "in", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_FNC_OUT) 	add_assoc_string(flag, "function", "out", 1);
+	
+	add_assoc_string(flag, "pullupdown", "unknown", 1);	
+	
+	if(flags & LIBRPIP_GPIO_FLAG_ED_OFF) 		add_assoc_string(flag, "eventdetect", "off", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_RISE) 	add_assoc_string(flag, "eventdetect", "rise", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_FALL) 	add_assoc_string(flag, "eventdetect", "fall", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_HIGH) 	add_assoc_string(flag, "eventdetect", "high", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_LOW) 	add_assoc_string(flag, "eventdetect", "low", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_ARISE) 	add_assoc_string(flag, "eventdetect", "async rise", 1);
+	else if(flags & LIBRPIP_GPIO_FLAG_ED_AFALL) 	add_assoc_string(flag, "eventdetect", "async fall", 1);
+	
+	add_assoc_zval(results, "flags", flag);
 
 	RETURN_ZVAL(results, 1, 1);	
 }
@@ -335,7 +413,9 @@ PHP_FUNCTION(librpip_I2cConfigRead) {
 	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
 	
 	long id;
+	long flags;
 	zval* results;
+	zval* flag;
 	char* val;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
@@ -352,10 +432,18 @@ PHP_FUNCTION(librpip_I2cConfigRead) {
 		RETURN_NULL();	
 	
 	val = strtok(result, " ");
+	flags=get_response_uint();
 	
 	MAKE_STD_ZVAL(results);	
 	array_init(results);
-	add_assoc_long(results, "flags", get_response_uint());
+	
+	MAKE_STD_ZVAL(flag);	
+	array_init(flag);
+	
+	add_assoc_long(flag, "raw", flags);
+	add_assoc_bool(flag, "pec", (flags & LIBRPIP_I2C_FLAG_PEC) ? 1 : 0);
+	
+	add_assoc_zval(results, "flags", flag);	
 
 	RETURN_ZVAL(results, 1, 1);	
 }
@@ -386,7 +474,9 @@ PHP_FUNCTION(librpip_PwmConfigRead) {
 	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
 	
 	long id;
+	long flags;
 	zval* results;
+	zval* flag;
 	char* val;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
@@ -408,7 +498,16 @@ PHP_FUNCTION(librpip_PwmConfigRead) {
 	add_assoc_long(results, "pin", get_response_uint());
 	add_assoc_long(results, "period", get_response_uint());
 	add_assoc_long(results, "duty_cycle", get_response_uint());
-	add_assoc_long(results, "flags", get_response_uint());	
+	
+	flags=get_response_uint();
+	
+	MAKE_STD_ZVAL(flag);	
+	array_init(flag);
+	add_assoc_long(flag, "raw", flags);
+	if(flags & LIBRPIP_PWM_FLAG_POLARITY_NORMAL) 		add_assoc_string(flag, "polarity", "normal", 1);
+	else if(flags & LIBRPIP_PWM_FLAG_POLARITY_INVERTED) 	add_assoc_string(flag, "polarity", "inverted", 1);
+	
+	add_assoc_zval(results, "flags", flag);	
 
 	RETURN_ZVAL(results, 1, 1);	
 }
@@ -590,7 +689,9 @@ PHP_FUNCTION(librpip_SpiConfigRead) {
 	
 	long id;
 	long cs;	
+	long flags;
 	zval* results;
+	zval* flag;
 	char* val;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &id, &cs) == FAILURE) {
@@ -613,7 +714,16 @@ PHP_FUNCTION(librpip_SpiConfigRead) {
 	add_assoc_long(results, "lsb_first", get_response_uint());
 	add_assoc_long(results, "bits_per_word", get_response_uint());
 	add_assoc_long(results, "max_speed", get_response_uint());
-	add_assoc_long(results, "spi_flags", get_response_uint());
+	
+	flags=get_response_uint();
+	
+	MAKE_STD_ZVAL(flag);	
+	array_init(flag);
+	add_assoc_long(flag, "raw", flags);
+	add_assoc_bool(flag, "cshigh", (flags & LIBRPIP_SPI_FLAG_CS_HIGH) ? 1 : 0);
+	add_assoc_bool(flag, "nocs", (flags & LIBRPIP_SPI_FLAG_NO_CS) ? 1 : 0);	
+	
+	add_assoc_zval(results, "flags", flag);	
 
 	RETURN_ZVAL(results, 1, 1);	
 }
@@ -643,6 +753,64 @@ PHP_FUNCTION(librpip_SpiConfigWrite) {
 	RETURN_TRUE;	
 }
 
+PHP_FUNCTION(librpip_UartConfigRead) {
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;	
+	zval* results;
+	char* val;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+	
+	char params[40]={0};
+	char result[80]={0};	
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('U', "UartConfigRead", 14, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();	
+	
+	val = strtok(result, " ");
+	
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	add_assoc_long(results, "baud", get_response_uint());
+	add_assoc_long(results, "csize", get_response_uint());
+	add_assoc_long(results, "parity", get_response_uint());
+	add_assoc_long(results, "stop", get_response_uint());
+	add_assoc_long(results, "mode", get_response_uint());	
+
+
+	RETURN_ZVAL(results, 1, 1);	
+}
+	
+PHP_FUNCTION(librpip_UartConfigWrite) {
+
+	if(ZEND_NUM_ARGS() != 5) WRONG_PARAM_COUNT;
+	
+	long id;
+	long baud;
+	long csize;
+	long parity;
+	long stop;
+	long mode;	
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "llllll", &id, &baud, &csize, &parity, &stop, &mode) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[80]={0};
+	
+	snprintf(params,sizeof(params),"%u %u %u %u %u %u",id, baud, csize, parity, stop, mode);
+
+	if(!run_function_write('U', "UartConfigWrite", 15, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
 	
 
 //internal functions

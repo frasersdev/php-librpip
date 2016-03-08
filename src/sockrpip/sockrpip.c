@@ -1,4 +1,25 @@
-#include <signal.h>
+/*
+ * php_librpip - a php extension to use Raspberry PI peripherals 
+ * from php.
+ * 
+ * Copyright (C) 2016 Fraser Stuart
+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+ 
+ #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -10,22 +31,8 @@
 
 #include <librpip.h>
 
+#include "sockrpip.h"
 
-
-static void daemonise(void);
-uint32_t setup_socket(int* fd);
-uint32_t do_command(int* fd);
-uint32_t get_variable(int* cl, char* cmdstr);
-uint32_t run_gpio_function(int* cl, char* cmdstr);
-uint32_t run_i2c_function(int* cl, char* cmdstr);
-uint32_t run_pwm_function(int* cl, char* cmdstr);
-uint32_t run_spi_function(int* cl, char* cmdstr);
-
-uint32_t get_param_uint(uint32_t* error);
-float get_param_float(uint32_t* error);
-void get_error_response(char* desc, int len);
-void get_syntax_response(char* desc, int len, int val);
-uint32_t feature_set;
 
 int main(int argc, char *argv[]) {
 
@@ -145,7 +152,10 @@ uint32_t do_command(int* fd) {
 				break;
 			case 'S':
 				run_spi_function(&cl,&buf[2]);
-				break;					
+				break;	
+			case 'U':
+				run_uart_function(&cl,&buf[2]);
+				break;									
 			default:
 				sprintf(msg,"Unknown CMD: %c\n", buf[0]);
 				syslog(LOG_WARNING, msg);
@@ -593,6 +603,65 @@ uint32_t run_spi_function(int* cl, char* cmdstr) {
 	write(*cl,buf,strlen(buf));
 	return 1;
 }
+
+uint32_t run_uart_function(int* cl, char* cmdstr) {
+	char *func;
+	char buf[350];
+	uint32_t valid;
+	uint32_t param_error;
+
+	valid=0;
+	param_error=0;	
+	
+	func = strtok(cmdstr, " ");
+
+	if(!strncmp("UartConfigRead",func,14)) {
+		valid=1;
+		uint32_t id = get_param_uint(&param_error);
+		uint32_t baud;
+		uint32_t csize;
+		uint32_t parity; 
+		uint32_t stop; 
+		uint32_t mode;
+
+		
+		if(param_error) {
+			get_syntax_response(&buf[0], sizeof(buf),2);
+		} else {
+			if(librpipUartConfigRead(id, &baud, &csize, &parity, &stop, &mode)) 
+				sprintf(buf,"Y %u %u %u %u %u", baud, csize, parity, stop, mode);	
+			else 
+				get_error_response(&buf[0], sizeof(buf));
+		}	
+	}	
+	else if(!strncmp("UartConfigWrite",func,15)) {
+		valid=1;
+		uint32_t id 		= get_param_uint(&param_error);
+		uint32_t baud		= get_param_uint(&param_error); 
+		uint32_t csize		= get_param_uint(&param_error); 
+		uint32_t parity		= get_param_uint(&param_error);
+		uint32_t stop		= get_param_uint(&param_error); 
+		uint32_t mode		= get_param_uint(&param_error);	
+			
+		if(param_error) {
+			get_syntax_response(&buf[0], sizeof(buf),5);
+		} else {				
+			if( librpipUartConfigWrite(id, baud, csize, parity, stop, mode)) 
+				sprintf(buf,"Y");	
+			else 
+				get_error_response(&buf[0], sizeof(buf));
+		}		
+	}	
+		
+	if(!valid) {
+		sprintf(buf,"X Unknown UART Function %s", func);
+	}
+	
+	write(*cl,buf,strlen(buf));
+	return 1;
+}
+
+
 
 void get_error_response(char* desc, int len) {
 
