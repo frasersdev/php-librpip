@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
  
- #include <signal.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -27,7 +27,9 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
+
 
 #include <librpip.h>
 
@@ -43,8 +45,13 @@ int main(int argc, char *argv[]) {
 	
 		feature_set = librpipInit(LIBRPIP_BOARD_DETECT, 0, 0);
 		
+		struct sockrpip_transaction_t* st = malloc((sizeof(struct sockrpip_transaction_t)*SOCKRPIP_TRANS));
+		char* buf = malloc(sizeof(char)*SOCKRPIP_BUFFER_SIZE)
+		
+		init_transactions(st,SOCKRPIP_TRANS);
+		
 		while (1) {
-			do_command(&fd);
+			do_command(&fd, st, buf, SOCKRPIP_BUFFER_SIZE);
 		}
 	}
 	return 0;
@@ -81,7 +88,7 @@ static void daemonise(void)
 
 	umask(0);
 
-	chdir("/var/lib/sockrpip");
+	chdir(SOCKRPIP_HOME);
 
     	/* Close all open file descriptors */
 	int x;
@@ -94,7 +101,7 @@ static void daemonise(void)
 
 uint32_t setup_socket(int* fd) {
 
-	char* socket_path = "/var/lib/sockrpip/socket";
+	char* socket_path = SOCKRPIP_SOCKET;
 	struct sockaddr_un addr;
 
 	if ( (*fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -122,16 +129,31 @@ uint32_t setup_socket(int* fd) {
 	return 1;	
 }
 
-uint32_t do_command(int* fd) {
+void init_transactions(struct sockrpip_transaction_t* st, uint16_t n) {
+
+	uint16_t i;
+	
+	for(i=0;i<n;i++) { 
+		strncpy(st[i].name,"",SOCKRPIP_NAME_SIZE);
+		st[i].ttl=0;
+		st[i].timer=0;
+		st[i].configured=0;
+		st[i].t=0;		
+	}
+
+}
+
+
+
+uint32_t do_command(int* fd, struct sockrpip_transaction_t* st, char* buf, int buf_size) {
 
 	int cl,rc;
-	char buf[255]={0};
 	char msg[255]={0};
 
 	if((cl = accept(*fd, NULL, NULL)) == -1) {
 		return 0;
 	}	
-	rc=read(cl,buf,sizeof(buf)-1);
+	rc=read(cl,buf,buf_size-1);
 	
 	if(rc > 2 ) {
 		buf[rc]='\0';
@@ -153,6 +175,9 @@ uint32_t do_command(int* fd) {
 			case 'S':
 				run_spi_function(&cl,&buf[2]);
 				break;	
+			case 'T':
+				run_tx_function(&cl,&buf[2],st);
+				break;					
 			case 'U':
 				run_uart_function(&cl,&buf[2]);
 				break;									
@@ -604,6 +629,110 @@ uint32_t run_spi_function(int* cl, char* cmdstr) {
 	return 1;
 }
 
+uint32_t run_tx_function(int* cl, char* cmdstr, struct sockrpip_transaction_t* st) {
+	char *func;
+	char buf[350];
+	uint32_t valid;
+	uint32_t param_error;
+
+	valid=0;
+	param_error=0;	
+	
+	func = strtok(cmdstr, " ");
+
+	if(!strncmp("TransactionConfigRead",func,21)) {
+		valid=1;
+		uint32_t id = get_param_uint(&param_error);
+		uint8_t mode;
+		uint8_t bpw;
+		uint8_t status; 
+		uint16_t len; 
+
+
+		if(param_error) {
+			get_syntax_response(&buf[0], sizeof(buf),2);
+		} else {
+			if(id < SOCKRPIP_TRANS) {
+				if(st[id].configured) {
+					librpipTransactionConfigRead(st[id].t, &mode, &bpw, &status, &len);
+					sprintf(buf,"Y %u %u %u %u %u %u %u %s", st[id].configured, st[id].ttl, st[id].timer, mode, bpw, status, len, st[id].name);	
+
+				} else {
+					sprintf(buf,"Y 0 0 0 0 0 0 0");
+				}
+			} else {
+				get_txerror_response(&buf[0], sizeof(buf), id);
+			}
+		}	
+	} else if(!strncmp("TransactionCreate",func,17)) {
+		valid=1;
+		uint32_t id = get_param_uint(&param_error);
+		uint32_t ttl = get_param_uint(&param_error);
+		uint8_t mode = get_param_uint(&param_error);
+		uint8_t bpw = get_param_uint(&param_error);
+
+		if(param_error) {
+			get_syntax_response(&buf[0], sizeof(buf),2);
+		} else {
+			if(id < SOCKRPIP_TRANS) {
+				if(st[id].configured) {
+					librpipTransactionDestroy(st[id].t);
+					get_param_str(st[id].name, SOCKRPIP_NAME_SIZE, &param_error);
+					st[id].ttl = ttl;
+					st[id].timer = 0;
+					st[id].configured =1 ;				
+					st[id].t = librpipTransactionCreate(mode, bpw);
+					sprintf(buf,"Y");
+				} else {
+					get_param_str(st[id].name, SOCKRPIP_NAME_SIZE, &param_error);
+					st[id].ttl = ttl;
+					st[id].timer = 0;
+					st[id].configured = 1 ;				
+					st[id].t = librpipTransactionCreate(mode, bpw);
+					sprintf(buf,"Y");
+				}
+			} else {
+				get_txerror_response(&buf[0], sizeof(buf), id);
+			}
+		}	
+	}
+	
+	} else if(!strncmp("TransactionMsgAdd",func,17)) {
+		valid=1;
+		uint32_t id = get_param_uint(&param_error);
+		uint8_t dir = get_param_uint(&param_error);
+		char* msgdata = strtok(NULL, " ");  //point at the start of the submitted buffer
+
+		if(param_error || !msgdata) {
+			get_syntax_response(&buf[0], sizeof(buf),2);
+		} else {
+			if(id < SOCKRPIP_TRANS) {
+				if(st[id].configured) {
+					//count how many elements submitted
+					//malloc memory to hold
+					//fill the txbuffer
+					if(librpipTransactionMsgAdd(st[id].t, dir, void* txbuf, uint16_t len))
+						sprintf(buf,"Y");
+					else 
+						get_error_response(&buf[0], sizeof(buf));
+					//free the txbuffer
+				} else {
+					get_txadderror_response(&buf[0], sizeof(buf), id));
+				}
+			} else {
+				get_txerror_response(&buf[0], sizeof(buf), id);
+			}
+		}	
+	}	
+	
+	if(!valid) {
+		sprintf(buf,"X Unknown Transaction Function %s", func);
+	}
+	
+	write(*cl,buf,strlen(buf));
+	return 1;
+}
+
 uint32_t run_uart_function(int* cl, char* cmdstr) {
 	char *func;
 	char buf[350];
@@ -686,6 +815,18 @@ void get_syntax_response(char* desc, int len, int val) {
 
 }
 
+void get_txerror_response(char* desc, int len, int val) {
+
+	snprintf(desc, len, "X Invalid transaction id %u.",val);
+
+}
+
+void get_txadderror_response(char* desc, int len, int val) {
+
+	snprintf(desc, len, "X Transaction id %u is not initialised.",val);
+
+}
+
 uint32_t get_param_uint(uint32_t* error) {
 
 	char *val;
@@ -708,6 +849,24 @@ float get_param_float(uint32_t* error) {
 		return atof(val);
 	} 
 	
+	*error=1;
+	return 0;
+}
+
+uint32_t get_param_str(char* str, uint32_t str_len, uint32_t* error) {
+
+	char *val;
+	
+	val=strtok(NULL, " ");
+	if(val) {
+		if(strlen(val) < str_len-1) strcpy(str,val);
+		else {
+			strncpy(str,val,str_len-1);
+			val=str+(str_len-1);
+			*val='\0';
+			return strlen(str);
+		} 
+	}
 	*error=1;
 	return 0;
 }

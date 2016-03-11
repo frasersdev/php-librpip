@@ -59,6 +59,8 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_ServoPositionWrite, NULL)
 	PHP_FE(librpip_SpiConfigRead, NULL)	
 	PHP_FE(librpip_SpiConfigWrite, NULL)
+	PHP_FE(librpip_TransactionCreate, NULL)
+	PHP_FE(librpip_TransactionConfigRead, NULL)	
 	PHP_FE(librpip_UartConfigRead, NULL)
 	PHP_FE(librpip_UartConfigWrite, NULL)			
 	{NULL, NULL, NULL}
@@ -157,7 +159,19 @@ PHP_MINIT_FUNCTION(librpip) {
 	REGISTER_LONG_CONSTANT("LIBRPIP_UART_STOPBITS_1", 		1, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LIBRPIP_UART_STOPBITS_2", 		2, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LIBRPIP_UART_MODE_BINARY", 		0, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("LIBRPIP_UART_MODE_ASCII	", 		1, CONST_CS | CONST_PERSISTENT);	
+	REGISTER_LONG_CONSTANT("LIBRPIP_UART_MODE_ASCII", 		1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_NOBUF", 			0x0, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_STATUS_NEW", 		0x1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_STATUS_MSG", 		0x2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_STATUS_SENTOK", 		0x3, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_STATUS_FAILED", 		0x4, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MODE_I2C", 			0x1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MODE_SPI", 			0x2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MODE_SPI_3W", 		0x3, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MODE_UART", 			0x4, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MSG_TX", 			0x1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MSG_RX", 			0x2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LIBRPIP_TX_MSG_TXRX", 			0x3, CONST_CS | CONST_PERSISTENT);		
     	return SUCCESS;  
 }
 
@@ -753,6 +767,129 @@ PHP_FUNCTION(librpip_SpiConfigWrite) {
 	RETURN_TRUE;	
 }
 
+PHP_FUNCTION(librpip_TransactionCreate) {
+
+	if(ZEND_NUM_ARGS() != 5) WRONG_PARAM_COUNT;
+	
+	long id;
+	long ttl;
+	long mode;
+	long bpw;
+	char *name;
+	int name_len;
+
+	
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lllls", &id, &ttl, &mode, &bpw, &name, &name_len) == FAILURE) {
+    		RETURN_FALSE;
+	}
+
+	char params[100]={0};
+	
+	snprintf(params,sizeof(params),"%u %u %u %u %s",id, ttl, mode, bpw, name);
+
+	if(!run_function_write('T', "TransactionCreate", 17, params, strlen(params))) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
+}
+
+PHP_FUNCTION(librpip_TransactionConfigRead) {
+
+	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
+	
+	long id;
+	long configured;
+	long tmp;
+	zval* results;
+	char* val;	
+
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &id) == FAILURE) {
+    		RETURN_NULL();
+	}
+
+	char params[40]={0};
+	char result[120]={0};	
+	char tname[25]={0};
+	
+	snprintf(params,sizeof(params),"%u",id);
+
+	if(!run_function_read('T', "TransactionConfigRead", 21, params, strlen(params), result, strlen(result))) 
+		RETURN_NULL();
+		
+	val = strtok(result, " ");
+		
+	MAKE_STD_ZVAL(results);	
+	array_init(results);
+	
+	configured=get_response_uint();	
+	if(configured) { 
+		zval* mode;
+		zval* status;
+				
+		add_assoc_bool(results, "configured", 1);
+		add_assoc_long(results, "ttl", get_response_uint());
+		add_assoc_long(results, "timer", get_response_uint());
+		
+		MAKE_STD_ZVAL(mode);	
+		array_init(mode);
+		tmp=get_response_uint();
+		add_assoc_long(mode, "raw", tmp);
+		switch(tmp) {
+			case LIBRPIP_TX_MODE_I2C:
+				add_assoc_string(mode, "value", "i2c", 1);
+				break;			
+			case LIBRPIP_TX_MODE_SPI:
+				add_assoc_string(mode, "value", "spi", 1);			
+				break;			
+			case LIBRPIP_TX_MODE_SPI_3W:
+				add_assoc_string(mode, "value", "spi 3wire", 1);			
+				break;			
+			case LIBRPIP_TX_MODE_UART:
+				add_assoc_string(mode, "value", "uart", 1);			
+				break;
+			default:
+				add_assoc_string(mode, "value", "unknown", 1);	
+		}
+		add_assoc_zval(results, "mode", mode);
+		
+		add_assoc_long(results, "bpw", get_response_uint());
+		
+		MAKE_STD_ZVAL(status);	
+		array_init(status);
+		tmp=get_response_uint();
+		add_assoc_long(status, "raw", tmp);
+		switch(tmp) {
+			case LIBRPIP_TX_STATUS_NEW:
+				add_assoc_string(status, "value", "new (no messages)", 1);
+				break;			
+			case LIBRPIP_TX_STATUS_MSG:
+				add_assoc_string(status, "value", "new (messages configured)", 1);			
+				break;			
+			case LIBRPIP_TX_STATUS_SENTOK:
+				add_assoc_string(status, "value", "sent successfully", 1);			
+				break;			
+			case LIBRPIP_TX_STATUS_FAILED:
+				add_assoc_string(status, "value", "send failed", 1);			
+				break;
+			default:
+				add_assoc_string(status, "value", "unknown", 1);	
+		}
+		add_assoc_zval(results, "status", status);
+		
+		add_assoc_long(results, "message segments", get_response_uint());
+			
+		if(get_response_str(tname,25)) {
+			add_assoc_string(results, "name", tname, 1);
+		}
+	} else {
+		add_assoc_bool(results, "configured", 0);
+	}	
+		
+	RETURN_ZVAL(results, 1, 1);	
+}
+
 PHP_FUNCTION(librpip_UartConfigRead) {
 	if(ZEND_NUM_ARGS() != 1) WRONG_PARAM_COUNT;
 	
@@ -1047,4 +1184,22 @@ uint32_t get_response_uint(void) {
 	
 	php_error(E_WARNING, "Sockrpip command error during %s(). Unexpected parameter return count.", get_active_function_name(TSRMLS_C));
 	return 0;
+}
+
+uint32_t get_response_str(char* str, int str_len) {
+
+	char resp[300]={0};
+	char* val;
+	
+	val=strtok(NULL, " ");
+	if(val) {
+		if(strlen(val) < str_len-1) strcpy(str,val);
+		else {
+			strncpy(str,val,str_len-1);
+			val=str+(str_len-1);
+			*val='\0';
+		}
+	}
+
+	return strlen(val);
 }

@@ -74,6 +74,8 @@ PHP_FUNCTION(librpip_ServoConfigWrite);
 PHP_FUNCTION(librpip_ServoPositionWrite);
 PHP_FUNCTION(librpip_SpiConfigRead);
 PHP_FUNCTION(librpip_SpiConfigWrite);
+PHP_FUNCTION(librpip_TransactionCreate);
+PHP_FUNCTION(librpip_TransactionConfigRead);
 PHP_FUNCTION(librpip_UartConfigRead);
 PHP_FUNCTION(librpip_UartConfigWrite);
 
@@ -87,5 +89,6 @@ uint32_t run_function_write(char class, char* func, int func_len, char* func_par
 uint32_t run_function_read(char class, char* func, int func_len, char* func_params, int func_params_len, char* resp, int resp_len);
 uint32_t do_socket_comms(char* cmd, int cmd_len, char* response, int response_len);
 uint32_t get_response_uint(void);
+uint32_t get_response_str(char* str, int str_len);
 
 #endif
