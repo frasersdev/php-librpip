@@ -41,7 +41,7 @@ struct sockrpip_transaction_t {
 static void daemonise(void);
 uint32_t setup_socket(int* fd);
 void init_transactions(struct sockrpip_transaction_t* st, uint16_t n);
-uint32_t do_command(int* fd,struct sockrpip_transaction_t* st);
+uint32_t do_command(int* fd, struct sockrpip_transaction_t* st, char* buf, int buf_size);
 uint32_t get_variable(int* cl, char* cmdstr);
 uint32_t run_gpio_function(int* cl, char* cmdstr);
 uint32_t run_i2c_function(int* cl, char* cmdstr);
@@ -56,7 +56,8 @@ uint32_t get_param_str(char* str, uint32_t str_len, uint32_t* error);
 void get_error_response(char* desc, int len);
 void get_syntax_response(char* desc, int len, int val);
 void get_txerror_response(char* desc, int len, int val);
-void get_txadderror_response(char* desc, int len, int val)
+void get_txadderror_response(char* desc, int len, int val);
+void get_txbuf_response(char* desc, int len, int val);
 uint32_t feature_set;
 
 #endif

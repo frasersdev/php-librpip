@@ -60,7 +60,8 @@ static zend_function_entry librpip_functions[] = {
 	PHP_FE(librpip_SpiConfigRead, NULL)	
 	PHP_FE(librpip_SpiConfigWrite, NULL)
 	PHP_FE(librpip_TransactionCreate, NULL)
-	PHP_FE(librpip_TransactionConfigRead, NULL)	
+	PHP_FE(librpip_TransactionConfigRead, NULL)
+	PHP_FE(librpip_TransactionMsgAdd, NULL)	
 	PHP_FE(librpip_UartConfigRead, NULL)
 	PHP_FE(librpip_UartConfigWrite, NULL)			
 	{NULL, NULL, NULL}
@@ -888,6 +889,68 @@ PHP_FUNCTION(librpip_TransactionConfigRead) {
 	}	
 		
 	RETURN_ZVAL(results, 1, 1);	
+}
+
+PHP_FUNCTION(librpip_TransactionMsgAdd) {
+
+	if( ZEND_NUM_ARGS() != 3) WRONG_PARAM_COUNT;
+	
+	long id;
+	long dir;
+	long size;
+	zval *msg, **data;
+	HashTable *msg_hash;
+	HashPosition pointer;
+	int msg_count;
+	char* params;
+	int result;
+	
+	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "lll", &id, &dir, &size) == SUCCESS) {
+    		if(dir != LIBRPIP_TX_MSG_RX) {
+    			php_error(E_WARNING, "Parameter error in %s(). Transmit (TX) requires an array of values to be passed as the 3rd parameter.", get_active_function_name(TSRMLS_C));
+    			RETURN_FALSE;
+    		}
+
+		params = emalloc(60*sizeof(char));	
+    		snprintf(params,60,"%u %u %u",id, dir, size);
+    		
+	} else if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS() TSRMLS_CC, "lla", &id, &dir, &msg) == SUCCESS) {
+    		if(dir == LIBRPIP_TX_MSG_RX) {
+    			php_error(E_WARNING, "Parameter error in %s(). Receive (RX) requires a size to be passed as the 3rd parameter.", get_active_function_name(TSRMLS_C));
+    			RETURN_FALSE;
+    		}
+    		msg_hash = Z_ARRVAL_P(msg);
+    		msg_count = zend_hash_num_elements(msg_hash);
+    		
+    		//emmaloc memory for params string
+		params = emalloc(((msg_count * 4) + 60) * sizeof(char));	
+		snprintf(params,(msg_count * 4) + 60,"%u %u %u",id, dir, msg_count);
+		
+		char msg_bit[5];
+		size=0;
+		for(zend_hash_internal_pointer_reset_ex(msg_hash, &pointer); 
+		    zend_hash_get_current_data_ex(msg_hash, (void**) &data, &pointer) == SUCCESS; 
+		    zend_hash_move_forward_ex(msg_hash, &pointer)) {
+			if(size==0) {
+				sprintf(msg_bit," %u",Z_LVAL_PP(data));
+			} else {
+				sprintf(msg_bit,"|%u",Z_LVAL_PP(data));
+			} 
+			strcat(params,msg_bit);
+			size++;
+		}	
+	} else {
+		RETURN_FALSE;
+	}	
+
+	result=run_function_write('T', "TransactionMsgAdd", 17, params, strlen(params));
+
+	efree(params);
+	
+	if(!result) 
+		RETURN_FALSE;	
+		
+	RETURN_TRUE;	
 }
 
 PHP_FUNCTION(librpip_UartConfigRead) {

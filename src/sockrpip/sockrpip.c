@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 		feature_set = librpipInit(LIBRPIP_BOARD_DETECT, 0, 0);
 		
 		struct sockrpip_transaction_t* st = malloc((sizeof(struct sockrpip_transaction_t)*SOCKRPIP_TRANS));
-		char* buf = malloc(sizeof(char)*SOCKRPIP_BUFFER_SIZE)
+		char* buf = malloc(sizeof(char)*SOCKRPIP_BUFFER_SIZE);
 		
 		init_transactions(st,SOCKRPIP_TRANS);
 		
@@ -650,7 +650,7 @@ uint32_t run_tx_function(int* cl, char* cmdstr, struct sockrpip_transaction_t* s
 
 
 		if(param_error) {
-			get_syntax_response(&buf[0], sizeof(buf),2);
+			get_syntax_response(&buf[0], sizeof(buf),1);
 		} else {
 			if(id < SOCKRPIP_TRANS) {
 				if(st[id].configured) {
@@ -672,7 +672,7 @@ uint32_t run_tx_function(int* cl, char* cmdstr, struct sockrpip_transaction_t* s
 		uint8_t bpw = get_param_uint(&param_error);
 
 		if(param_error) {
-			get_syntax_response(&buf[0], sizeof(buf),2);
+			get_syntax_response(&buf[0], sizeof(buf),4);
 		} else {
 			if(id < SOCKRPIP_TRANS) {
 				if(st[id].configured) {
@@ -695,29 +695,43 @@ uint32_t run_tx_function(int* cl, char* cmdstr, struct sockrpip_transaction_t* s
 				get_txerror_response(&buf[0], sizeof(buf), id);
 			}
 		}	
-	}
 	
 	} else if(!strncmp("TransactionMsgAdd",func,17)) {
 		valid=1;
 		uint32_t id = get_param_uint(&param_error);
 		uint8_t dir = get_param_uint(&param_error);
+		uint16_t len = get_param_uint(&param_error);		
 		char* msgdata = strtok(NULL, " ");  //point at the start of the submitted buffer
 
-		if(param_error || !msgdata) {
-			get_syntax_response(&buf[0], sizeof(buf),2);
+		if(param_error) {
+			get_syntax_response(&buf[0], sizeof(buf),3);
+		} else if((dir & LIBRPIP_TX_MSG_TX) && !msgdata) {
+			get_syntax_response(&buf[0], sizeof(buf),3);
+		} else if((dir & LIBRPIP_TX_MSG_TX) && len >= (SOCKRPIP_BUFFER_SIZE/2)) {
+			get_txbuf_response(&buf[0], sizeof(buf),SOCKRPIP_BUFFER_SIZE/2);			
 		} else {
 			if(id < SOCKRPIP_TRANS) {
 				if(st[id].configured) {
-					//count how many elements submitted
-					//malloc memory to hold
-					//fill the txbuffer
-					if(librpipTransactionMsgAdd(st[id].t, dir, void* txbuf, uint16_t len))
-						sprintf(buf,"Y");
-					else 
-						get_error_response(&buf[0], sizeof(buf));
-					//free the txbuffer
+					if(dir & LIBRPIP_TX_MSG_TX) {
+						uint8_t* txbuf = malloc(sizeof(uint8_t)*(1+(SOCKRPIP_BUFFER_SIZE/2)));
+						char* val = strtok(msgdata, "|");
+						while(val) {
+							txbuf[len] = atoi(val);
+							val = strtok(NULL, "|");
+						}
+						if(librpipTransactionMsgAdd(st[id].t, dir, txbuf, len))
+							sprintf(buf,"Y");
+						else 
+							get_error_response(&buf[0], sizeof(buf));
+						free(txbuf);
+					} else {
+						if(librpipTransactionMsgAdd(st[id].t, dir, 0, len))
+							sprintf(buf,"Y");
+						else 
+							get_error_response(&buf[0], sizeof(buf));					
+					}
 				} else {
-					get_txadderror_response(&buf[0], sizeof(buf), id));
+					get_txadderror_response(&buf[0], sizeof(buf), id);
 				}
 			} else {
 				get_txerror_response(&buf[0], sizeof(buf), id);
@@ -826,6 +840,13 @@ void get_txadderror_response(char* desc, int len, int val) {
 	snprintf(desc, len, "X Transaction id %u is not initialised.",val);
 
 }
+
+void get_txbuf_response(char* desc, int len, int val) {
+
+	snprintf(desc, len, "X Message data is larger than buffer %u.",val);
+
+}
+
 
 uint32_t get_param_uint(uint32_t* error) {
 

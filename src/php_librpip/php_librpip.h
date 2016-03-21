@@ -76,6 +76,7 @@ PHP_FUNCTION(librpip_SpiConfigRead);
 PHP_FUNCTION(librpip_SpiConfigWrite);
 PHP_FUNCTION(librpip_TransactionCreate);
 PHP_FUNCTION(librpip_TransactionConfigRead);
+PHP_FUNCTION(librpip_TransactionMsgAdd);
 PHP_FUNCTION(librpip_UartConfigRead);
 PHP_FUNCTION(librpip_UartConfigWrite);
 
